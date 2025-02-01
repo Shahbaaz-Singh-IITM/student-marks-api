@@ -4,36 +4,38 @@ import urllib.request
 import json
 import traceback
 
-# URL of the raw JSON marks file.
+# URL for the remote JSON marks data.
 MARKS_URL = "https://raw.githubusercontent.com/Shahbaaz-Singh-IITM/student-marks-api/refs/heads/main/marks.json"
 
 def load_marks_data():
-    """Fetch and return the marks data from the remote URL.
-       If the data is a list (each element with "name" and "mark"), convert it to a dict.
-       Otherwise, if it is already a dict, return as is.
+    """Fetch marks data from the remote URL and return a dictionary with lowercased keys.
+       Assumes the remote JSON is an array of objects where each has "name" and "marks" keys.
     """
     try:
         with urllib.request.urlopen(MARKS_URL) as response:
             content = response.read().decode("utf-8")
             loaded_data = json.loads(content)
+        # If loaded data is a list, convert it to a dictionary.
         if isinstance(loaded_data, list):
             data = {}
             for item in loaded_data:
-                if isinstance(item, dict) and "name" in item and "mark" in item:
-                    data[item["name"]] = item["mark"]
+                if isinstance(item, dict) and "name" in item and "marks" in item:
+                    key = item["name"].strip().lower()
+                    data[key] = item["marks"]
                 else:
-                    print("Invalid item in remote marks data:", item)
+                    print("Invalid item in marks data:", item)
             return data
         elif isinstance(loaded_data, dict):
-            return loaded_data
+            # Convert keys to lowercase.
+            return {str(key).strip().lower(): value for key, value in loaded_data.items()}
         else:
-            print("Remote marks.json has an unsupported format.")
+            print("Remote marks data has an unsupported format.")
             return {}
     except Exception as e:
-        print("Error loading remote marks.json:", e)
+        print("Error loading remote marks data:", e)
         return {}
 
-# Load the marks data once, when the module is imported.
+# Load the marks data once when the module loads.
 DATA = load_marks_data()
 print("Loaded DATA keys:", list(DATA.keys()))
 
@@ -52,21 +54,18 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         try:
-            # Parse query parameters from the URL.
+            # Parse the URL and extract query parameters.
             parsed_url = urllib.parse.urlparse(self.path)
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            # Extract all "name" parameters as a list.
+            # Extract all occurrences of "name" as a list.
             names = query_params.get("name", [])
             
             marks = []
             for name in names:
-                orig_name = name.strip()
-                # First try an exact lookup.
-                mark = DATA.get(orig_name)
-                if mark is None:
-                    # If not found, try by converting to lowercase.
-                    mark = DATA.get(orig_name.lower(), 0)
-                marks.append(mark if mark is not None else 0)
+                # Normalize the query name: trim and convert to lowercase.
+                lookup_name = name.strip().lower()
+                mark = DATA.get(lookup_name, 0)
+                marks.append(mark)
             
             result = {"marks": marks}
             response_data = json.dumps(result)
