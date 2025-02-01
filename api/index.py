@@ -4,32 +4,33 @@ import json
 import urllib.parse
 import traceback
 
-# Path to marks.json (assumed to be in the repository root)
+# Determine the absolute path to marks.json, assumed to be one folder above this file.
 DATA_FILE = os.path.join(os.path.dirname(__file__), '..', 'marks.json')
 
-# Load the JSON dataset and, if necessary, convert a list into a dictionary.
+# Load the JSON dataset from marks.json.
 try:
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         loaded_data = json.load(f)
+    # If the loaded data is a list, convert it into a dictionary.
     if isinstance(loaded_data, list):
-        # Assuming each element is a dict with keys "name" and "mark"
         DATA = {}
         for item in loaded_data:
             if isinstance(item, dict) and "name" in item and "mark" in item:
-                DATA[item["name"]] = item["mark"]
+                # Convert keys to lowercase for case-insensitive matching.
+                DATA[item["name"].lower()] = item["mark"]
             else:
                 print("Invalid item in marks.json:", item)
     elif isinstance(loaded_data, dict):
-        DATA = loaded_data
+        # Create a new dictionary with lowercase keys.
+        DATA = {key.lower(): value for key, value in loaded_data.items()}
     else:
-        print("marks.json has unsupported format. Using empty data.")
+        print("marks.json has an unsupported format. Using empty dataset.")
         DATA = {}
 except Exception as e:
     print("Error loading marks.json:", e)
     DATA = {}
 
 class handler(BaseHTTPRequestHandler):
-
     def do_OPTIONS(self):
         try:
             self.send_response(200)
@@ -44,17 +45,16 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         try:
-            # Parse the query parameters from the URL.
+            # Parse the URL to extract query parameters.
             parsed_url = urllib.parse.urlparse(self.path)
             query_params = urllib.parse.parse_qs(parsed_url.query)
-            # Get all the "name" parameters as a list.
+            # Get all occurrences of "name" as a list.
             names = query_params.get("name", [])
             
-            # For each requested name, look up its mark in DATA (defaulting to 0 if not found).
-            marks = [DATA.get(name, 0) for name in names]
+            # Convert each name in the query parameters to lowercase before lookup.
+            marks = [DATA.get(name.strip().lower(), 0) for name in names]
             result = {"marks": marks}
             
-            # Prepare and send the JSON response.
             response_data = json.dumps(result)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
