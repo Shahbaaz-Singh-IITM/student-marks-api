@@ -1,28 +1,36 @@
-import json
 import os
+import json
 
-# Load the JSON dataset when the function is loaded.
+# Load dataset
 DATA_FILE = os.path.join(os.path.dirname(__file__), '..', 'marks.json')
-with open(DATA_FILE, encoding='utf-8') as f:
-    DATA = json.load(f)
+try:
+    with open(DATA_FILE, encoding='utf-8') as f:
+        DATA = json.load(f)
+except Exception as e:
+    DATA = {}
+    print("Error loading marks.json:", e)
 
 def handler(request, response):
-    # Set CORS headers to allow GET requests from any origin.
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-
-    # Handle preflight OPTIONS request
-    if request.method == "OPTIONS":
+    try:
+        # Enable CORS
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        
+        # Handle OPTIONS request
+        if request.method == "OPTIONS":
+            response.status_code = 200
+            return
+        
+        # Get the list of student names
+        names = request.query.getlist("name")
+        
+        # Retrieve marks for each name (or 0 if not found)
+        marks = [DATA.get(name, 0) for name in names]
+        result = { "marks": marks }
         response.status_code = 200
-        return
-
-    # Extract query parameters 'name'. The "getlist" method is used to retrieve multiple parameters.
-    names = request.query.getlist("name")
-    # Retrieve marks for each queried name (defaulting to 0 if a name is not found)
-    marks = [DATA.get(name, 0) for name in names]
-
-    # Create a JSON response
-    result = { "marks": marks }
-    response.status_code = 200
-    response.send(json.dumps(result))
+        response.send(json.dumps(result))
+    except Exception as error:
+        # Send error details for debugging (you might remove detailed errors later for production)
+        response.status_code = 500
+        response.send(json.dumps({"error": str(error)}))
