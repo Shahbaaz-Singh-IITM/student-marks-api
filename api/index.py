@@ -2,7 +2,7 @@ import json
 import os
 
 # Load the JSON dataset when the function is loaded.
-DATA_FILE = os.path.join(os.path.dirname(__file__), '..', 'q-vercel-python.json')
+DATA_FILE = os.path.join(os.path.dirname(__file__), '..', 'marks.json')
 with open(DATA_FILE, encoding='utf-8') as f:
     DATA = json.load(f)
 
