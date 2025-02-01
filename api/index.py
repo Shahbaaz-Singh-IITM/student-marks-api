@@ -1,47 +1,44 @@
+from http.server import BaseHTTPRequestHandler
 import os
 import json
+import urllib.parse
 
-# Determine the path to marks.json at the repository root.
+# Compute the absolute path to marks.json in the repository root.
 DATA_FILE = os.path.join(os.path.dirname(__file__), '..', 'marks.json')
 
-# Try to load the JSON data when the module is imported.
+# Load the JSON dataset (mapping student names to marks).
 try:
     with open(DATA_FILE, 'r', encoding='utf-8') as f:
         DATA = json.load(f)
 except Exception as e:
-    # Log error and default to an empty dataset.
     print("Error loading marks.json:", e)
     DATA = {}
 
-def handler(request, response):
-    try:
-        # Set CORS headers to allow requests from any origin.
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET,OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        # Handle CORS preflight requests.
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET,OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
-        # Handle preflight OPTIONS request.
-        if request.method == "OPTIONS":
-            response.status_code = 200
-            return
-
-        # Extract the 'name' query parameter(s)
-        # request.query may provide getlist() or just a dictionary.
-        if hasattr(request.query, "getlist"):
-            names = request.query.getlist("name")
-        else:
-            # If multiple names are provided as comma‐separated, split them.
-            names = request.query.get("name", "")
-            names = names.split(",") if names else []
-
-        # For each provided name, lookup the mark; default is 0 when not found.
+    def do_GET(self):
+        # Set response status and headers (including CORS)
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        
+        # Parse the query string from self.path
+        # For example, if the URL is /api?name=Alice&name=Bob
+        parsed_url = urllib.parse.urlparse(self.path)
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+        names = query_params.get("name", [])
+        
+        # Look up each name in the dataset (defaulting to 0 if not found)
         marks = [DATA.get(name, 0) for name in names]
+        response = {"marks": marks}
 
-        # Create the JSON response.
-        result = {"marks": marks}
-        response.status_code = 200
-        response.send(json.dumps(result))
-    except Exception as err:
-        # In case of error, respond with a 500 and the error message.
-        response.status_code = 500
-        response.send(json.dumps({"error": str(err)}))
+        # Send the JSON response
+        self.wfile.write(json.dumps(response).encode("utf-8"))
