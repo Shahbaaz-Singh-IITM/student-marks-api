@@ -32,5 +32,5 @@ def handler(request, response):
         response.send(json.dumps(result))
     except Exception as error:
         # Send error details for debugging (you might remove detailed errors later for production)
-        response.status_code = 500
+        response.status_code = 501
         response.send(json.dumps({"error": str(error)}))
